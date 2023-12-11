@@ -1,0 +1,6 @@
+{
+    "tasks": {
+      "main": "deno run --allow-env --allow-net --allow-run --allow-read --allow-write --unstable src/main.ts"
+    },
+    "unstable": ["byonm", "net", "fs"]
+  }
