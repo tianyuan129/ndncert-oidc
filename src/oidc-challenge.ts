@@ -63,15 +63,16 @@ export abstract class ServerOidcChallenge implements ServerChallenge<State> {
         method: 'post',
         body: this.requestBody,
         headers: this.requestHeader
-        // headers: Object.fromEntries(this.requestHeader)
       });
       const data = await response.json();
       const JWKS = createRemoteJWKSet(new URL(this.pubKeyUrl));
+      console.log(data)
       if (data["error"]) {
         return invalidAccessCode;
       }
       else if (data["id_token"]) {
         const { payload } = await jwtVerify(data["id_token"], JWKS);
+        console.log(payload)
         try { 
           await this.assignmentPolicy?.(context.subjectName, String(payload["email"]));
         }
