@@ -1,5 +1,5 @@
 import { Certificate, generateSigningKey, type NamedSigner, type NamedVerifier } from "@ndn/keychain";
-import { CaProfile, ProbeResponse, retrieveCaProfile, requestCertificate} from "@ndn/ndncert";
+import { CaProfile, ProbeResponse, retrieveCaProfile, requestCertificate } from "@ndn/ndncert";
 import { openUplinks } from "@ndn/cli-common";
 import { Name } from "@ndn/packet";
 import { ClientOidcChallenge } from "./oidc-challenge.ts";
@@ -12,14 +12,10 @@ let reqPvt: NamedSigner.PrivateKey;
 let reqPub: NamedVerifier.PublicKey;
 let reqCert: Certificate;
 let accessCode: string;
-let oidcClientId : string;
-
-export class GoogleClientOidcChallenge extends ClientOidcChallenge {
-  public readonly challengeId = "google-oidc";
-}
+let oidcId: string;
 
 const runClient = async () => {
-  const OidcChallenge = new GoogleClientOidcChallenge(oidcClientId, accessCode);
+  const OidcChallenge = new ClientOidcChallenge("google-oidc", { oidcId, accessCode });
 
   [reqPvt, reqPub] = await generateSigningKey(reqName);
   reqCert = await requestCertificate({
@@ -32,15 +28,15 @@ const runClient = async () => {
 };
 
 
-const parser = yargs(Deno.args).options({
-  reqName: { type: 'string'},
-  caCertFullNameStr: { type: 'string'},
-  oidcId: { type: 'string'},
-  accessCode: { type: 'string'}
-});
+if (import.meta.main) {
+  const parser = yargs(Deno.args).options({
+    reqName: { type: 'string' },
+    caCertFullNameStr: { type: 'string' },
+    oidcId: { type: 'string' },
+    accessCode: { type: 'string' }
+  });
 
 
-(async() => {
   const argv = await parser.argv;
   reqName = argv.reqName;
 
@@ -53,7 +49,9 @@ const parser = yargs(Deno.args).options({
   else {
     console.log("You should input a CA's full certificate name")
   }
-  oidcClientId = argv.oidcId;
+  oidcId = argv.oidcId;
   accessCode = argv.accessCode;
-  runClient()
-})();
+  await runClient();
+
+  Deno.exit();
+}
