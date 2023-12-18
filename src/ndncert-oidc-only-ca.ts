@@ -1,12 +1,12 @@
 import { Random } from "./dep.ts";
 import { Certificate, generateSigningKey, type NamedSigner, type NamedVerifier } from "@ndn/keychain";
 import { FwHint, Name, type Signer } from "@ndn/packet";
-import { DataStore, RepoProducer, PrefixRegStatic } from "@ndn/repo";
+import { DataStore, PrefixRegStatic, RepoProducer } from "@ndn/repo";
 import { openUplinks } from "@ndn/cli-common";
 import { CaProfile, Server } from "@ndn/ndncert";
 import { ServerOidcChallenge } from "./oidc-challenge.ts";
 import memdown from "memdown";
-import yargs from 'yargs/yargs';
+import yargs from "yargs/yargs";
 
 let caPvt: NamedSigner.PrivateKey;
 let caPub: NamedVerifier.PublicKey;
@@ -50,45 +50,56 @@ const runCA = async () => {
     signer: caSigner,
     version: 7,
   });
-  console.log(caProfile.toJSON())
+  console.log(caProfile.toJSON());
   const fullName = await caProfile.cert.data.computeFullName();
-  console.log("CA certificate full name is ", fullName.toString())
+  console.log("CA certificate full name is ", fullName.toString());
   return Server.create({
     profile: caProfile,
     repo,
     repoFwHint,
     signer: caSigner,
-    challenges: [new ServerOidcChallenge(
-      "google-oidc",
-      60000,
-      1,
-      {
-        requestHeader,
-        requestBody,
-        requestUrl: "https://oauth2.googleapis.com/token",
-        pubKeyUrl: "https://www.googleapis.com/oauth2/v3/certs",
-        assignmentPolicy: (_sub, _id) => {
-          console.log(_sub + " applied by " + _id);
-          return Promise.resolve();
-        }
-      })
-    ]
+    challenges: [
+      new ServerOidcChallenge(
+        "google-oidc",
+        60000,
+        1,
+        {
+          requestHeader,
+          requestBody,
+          requestUrl: "https://oauth2.googleapis.com/token",
+          pubKeyUrl: "https://www.googleapis.com/oauth2/v3/certs",
+          assignmentPolicy: (sub, id) => {
+            console.log(sub + " applied by " + id);
+            const parts = id.split("@");
+            if (parts.length != 2) {
+              throw new Error("Email address not correct");
+            }
+            const [account, domain] = parts;
+            const subnames = domain.split(".").reverse();
+            const assignedName = new Name(caPrefix).append(...subnames).append(
+              account,
+            );
+            return Promise.resolve(assignedName);
+          },
+        },
+      ),
+    ],
   });
 };
 
 if (import.meta.main) {
   const parser = yargs(Deno.args).options({
-    caPrefix: { type: 'string' },
-    maxValidity: { type: 'number', default: 86400000 },
-    repoName: { type: 'string' },
-    oidcId: { type: 'string' },
-    oidcSecret: { type: 'string' },
-    redirectUrl: { type: 'string' },
+    caPrefix: { type: "string" },
+    maxValidity: { type: "number", default: 86400000 },
+    repoName: { type: "string" },
+    oidcId: { type: "string" },
+    oidcSecret: { type: "string" },
+    redirectUrl: { type: "string" },
   });
 
   const argv = await parser.argv;
   // Add a random string to make test tolerate obsolete CS
-  caPrefix = argv.caPrefix + '/' + new Random().string(6);
+  caPrefix = argv.caPrefix + "/" + new Random().string(6);
   maxValidity = argv.maxValidity;
   repoName = argv.repoName;
   oidcClientId = argv.oidcId;
@@ -97,9 +108,9 @@ if (import.meta.main) {
 
   const server = await runCA();
   Deno.addSignalListener("SIGINT", () => {
-    console.log("Stopped by Ctrl+C")
-    server.close()
-    repoProducer.close()
-    Deno.exit()
-  })
+    console.log("Stopped by Ctrl+C");
+    server.close();
+    repoProducer.close();
+    Deno.exit();
+  });
 }

@@ -1,10 +1,15 @@
 import type { Name } from "@ndn/packet";
-import { toUtf8, fromUtf8 } from "@ndn/util";
+import { fromUtf8, toUtf8 } from "@ndn/util";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type {
-  ChallengeRequest, ParameterKV, ClientChallenge, ServerChallenge,
-  ServerChallengeContext, ServerChallengeResponse
+  ChallengeRequest,
+  ClientChallenge,
+  ParameterKV,
+  ServerChallenge,
+  ServerChallengeContext,
+  ServerChallengeResponse,
 } from "@ndn/ndncert";
+import { NamedVerifier } from "@ndn/keychain";
 
 export class ClientOidcChallenge implements ClientChallenge {
   constructor(
@@ -12,11 +17,14 @@ export class ClientOidcChallenge implements ClientChallenge {
     private readonly options: {
       oidcId: string;
       accessCode: string;
-    }
-  ) { }
+    },
+  ) {}
 
   public start(): Promise<ParameterKV> {
-    return Promise.resolve({ "oidc-id": toUtf8(this.options.oidcId), "access-code": toUtf8(this.options.accessCode) });
+    return Promise.resolve({
+      "oidc-id": toUtf8(this.options.oidcId),
+      "access-code": toUtf8(this.options.accessCode),
+    });
   }
 
   public next(): Promise<ParameterKV> {
@@ -36,9 +44,12 @@ const invalidAccessCode: ServerChallengeResponse = {
 type State = {
   oidcId: Uint8Array;
   accessCode: Uint8Array;
-}
+};
 
-export type AssignmentPolicy = (newSubjectName: Name, userId: string) => Promise<void>;
+export type AssignmentPolicy = (
+  subjectName: Name,
+  userId: string,
+) => Promise<Name | undefined>;
 
 export class ServerOidcChallenge implements ServerChallenge<State> {
   constructor(
@@ -51,17 +62,25 @@ export class ServerOidcChallenge implements ServerChallenge<State> {
       requestUrl: string;
       pubKeyUrl: string;
       assignmentPolicy?: AssignmentPolicy;
-    }
-  ) { }
+    },
+  ) {}
 
   public async process(
-    request: ChallengeRequest, context: ServerChallengeContext<State>
+    request: ChallengeRequest,
+    context: ServerChallengeContext<State>,
   ): Promise<ServerChallengeResponse> {
     const {
       "oidc-id": oidcId,
       "access-code": accessCode,
     } = request.parameters;
-    console.info(`Challenge request: ${JSON.stringify({ oidcId: fromUtf8(oidcId), accessCode: fromUtf8(accessCode) })}`)
+    console.info(
+      `Challenge request: ${
+        JSON.stringify({
+          oidcId: fromUtf8(oidcId),
+          accessCode: fromUtf8(accessCode),
+        })
+      }`,
+    );
     if (!oidcId || !accessCode) {
       return invalidParameters;
     }
@@ -70,29 +89,42 @@ export class ServerOidcChallenge implements ServerChallenge<State> {
     this.options.requestBody.append("code", fromUtf8(accessCode));
     try {
       const response = await fetch(this.options.requestUrl, {
-        method: 'post',
+        method: "post",
         body: this.options.requestBody,
-        headers: this.options.requestHeader
+        headers: this.options.requestHeader,
       });
       const data = await response.json();
       const JWKS = createRemoteJWKSet(new URL(this.options.pubKeyUrl));
       if (data["error"]) {
         console.error(`Invalid AccessToken: ${JSON.stringify(data)}`);
         return invalidAccessCode;
-      }
-      else if (data["id_token"]) {
+      } else if (data["id_token"]) {
         const { payload } = await jwtVerify(data["id_token"], JWKS);
         try {
-          await this.options.assignmentPolicy?.(context.subjectName, String(payload["email"]));
-        }
-        catch {
+          const assignedName = await this.options.assignmentPolicy?.(
+            context.subjectName,
+            String(payload["email"]),
+          );
+          if (assignedName) {
+            // Force the certificate to be renamed
+            const contextInternal = context as unknown as {
+              certRequestPub: NamedVerifier.PublicKey;
+            };
+            contextInternal.certRequestPub = {
+              ...contextInternal.certRequestPub,
+              name: assignedName,
+            };
+            console.info(
+              `Rename the certificate to ${assignedName.toString()}`,
+            );
+          }
+        } catch {
           console.error(`Invalid ID Token: ${JSON.stringify(data)}`);
           return invalidAccessCode;
         }
       }
-    }
-    catch (e) {
-      console.error(`Failed in OIDC challenge: ${e}`)
+    } catch (e) {
+      console.error(`Failed in OIDC challenge: ${e}`);
       return invalidAccessCode;
     }
     return { success: true };
