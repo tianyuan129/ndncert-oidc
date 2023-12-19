@@ -1,8 +1,8 @@
 import { Random } from "./dep.ts";
 import { Certificate, generateSigningKey, type NamedSigner, type NamedVerifier } from "@ndn/keychain";
 import { FwHint, Name, type Signer } from "@ndn/packet";
-import { DataStore, PrefixRegStatic, RepoProducer } from "@ndn/repo";
-import { openUplinks } from "@ndn/cli-common";
+import { DataStore, RepoProducer, PrefixRegStatic } from "@ndn/repo";
+import { exitClosers, openUplinks } from "@ndn/cli-common";
 import { CaProfile, Server } from "@ndn/ndncert";
 import { ServerOidcChallenge } from "./oidc-challenge.ts";
 import memdown from "memdown";
@@ -48,7 +48,7 @@ const runCA = async () => {
     maxValidityPeriod: maxValidity,
     cert: caCert,
     signer: caSigner,
-    version: 7,
+    version: Date.now(),
   });
   console.log(caProfile.toJSON());
   const fullName = await caProfile.cert.data.computeFullName();
@@ -85,6 +85,8 @@ const runCA = async () => {
       ),
     ],
   });
+  exitClosers.push(server);
+  await exitClosers.wait();
 };
 
 if (import.meta.main) {
