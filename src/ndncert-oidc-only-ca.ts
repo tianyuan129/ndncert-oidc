@@ -1,7 +1,7 @@
 import { Certificate, generateSigningKey, type NamedSigner, type NamedVerifier } from "@ndn/keychain";
 import { FwHint, Name, type Signer } from "@ndn/packet";
 import { DataStore, RepoProducer, PrefixRegStatic } from "@ndn/repo";
-import { openUplinks } from "@ndn/cli-common";
+import { exitClosers, openUplinks } from "@ndn/cli-common";
 import { CaProfile, Server } from "@ndn/ndncert";
 import { ClientOidcChallenge, ServerOidcChallenge } from "./oidc-challenge.ts";
 import memdown from "memdown";
@@ -75,6 +75,8 @@ const runCA = async () => {
       })
     ]
   });
+  exitClosers.push(server);
+  await exitClosers.wait();
 };
 
 const parser = yargs(Deno.args).options({
