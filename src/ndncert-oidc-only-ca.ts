@@ -55,7 +55,7 @@ const runCA = async () => {
     maxValidityPeriod: maxValidity,
     cert: caCert,
     signer: caSigner,
-    version: 7,
+    version: Date.now(),
   });
   console.log(caProfile.toJSON())
   const fullName = await caProfile.cert.data.computeFullName();
