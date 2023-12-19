@@ -1,4 +1,5 @@
 import { Random } from "./dep.ts";
+import { FwTracer } from "@ndn/fw";
 import { Certificate, generateSigningKey, type NamedSigner, type NamedVerifier } from "@ndn/keychain";
 import { FwHint, Name, type Signer } from "@ndn/packet";
 import { DataStore, RepoProducer, PrefixRegStatic } from "@ndn/repo";
@@ -99,6 +100,7 @@ if (import.meta.main) {
     redirectUrl: { type: "string" },
   });
 
+  FwTracer.enable()
   const argv = await parser.argv;
   // Add a random string to make test tolerate obsolete CS
   caPrefix = argv.caPrefix + "/" + new Random().string(6);
