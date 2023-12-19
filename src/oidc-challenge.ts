@@ -56,6 +56,7 @@ export abstract class ServerOidcChallenge implements ServerChallenge<State> {
       return invalidParameters;
     }
     context.challengeState = { oidcId, accessCode };
+    console.log("Receiving access code", fromUtf8(accessCode))
     // write access code to the request body
     this.requestBody.append("code", fromUtf8(accessCode));
     try {
