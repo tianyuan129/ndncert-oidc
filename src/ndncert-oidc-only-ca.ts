@@ -102,8 +102,7 @@ if (import.meta.main) {
 
   FwTracer.enable()
   const argv = await parser.argv;
-  // Add a random string to make test tolerate obsolete CS
-  caPrefix = argv.caPrefix + "/" + new Random().string(6);
+  caPrefix = argv.caPrefix;
   maxValidity = argv.maxValidity;
   repoName = argv.repoName;
   oidcClientId = argv.oidcId;
