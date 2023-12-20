@@ -96,7 +96,7 @@ const runCA = async () => {
 if (import.meta.main) {
   const parser = yargs(Deno.args).options({
     caCertName: { type: "string" },
-    maxValidity: { type: "number", default: 86400000 },
+    maxValidity: { type: "number", default: 86400000*30 },
     repoName: { type: "string" },
     oidcId: { type: "string" },
     oidcSecret: { type: "string" }
