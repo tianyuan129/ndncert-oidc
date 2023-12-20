@@ -47,8 +47,9 @@ const runCA = async () => {
   const [algo, key] = await caCert.importPublicKey(algoList);
   const pkcs8 = await safeBag.decryptKey("PASSPHRASE");
   [caPvt, caPub] = await generateSigningKey(caCert.name, algo, { importPkcs8: [pkcs8, key.spki] });
+  caPrefix = caCert.name.getPrefix(-4).toString();
   caProfile = await CaProfile.build({
-    prefix: caCert.name.getPrefix(-4),
+    prefix: new Name(caPrefix),
     info: caPrefix + " CA",
     probeKeys: [],
     maxValidityPeriod: maxValidity,
