@@ -10,13 +10,15 @@ let caProfile: CaProfile;
 let reqPvt: NamedSigner.PrivateKey;
 let reqPub: NamedVerifier.PublicKey;
 let reqCert: Certificate;
-let accessCode: string;
 let oidcId: string;
+let accessCode: string;
+let redirectUri: string;
 
 const runClient = async () => {
   const OidcChallenge = new ClientOidcChallenge("google-oidc", {
     oidcId,
     accessCode,
+    redirectUri,
   });
 
   [reqPvt, reqPub] = await generateSigningKey(reqName);
@@ -35,6 +37,7 @@ if (import.meta.main) {
     caCertFullNameStr: { type: "string" },
     oidcId: { type: "string" },
     accessCode: { type: "string" },
+    redirectUri: { type: "string" },
   });
 
   const argv = await parser.argv;
@@ -50,6 +53,7 @@ if (import.meta.main) {
   }
   oidcId = argv.oidcId;
   accessCode = argv.accessCode;
+  redirectUri = argv.redirectUri;
   await runClient();
 
   Deno.exit();

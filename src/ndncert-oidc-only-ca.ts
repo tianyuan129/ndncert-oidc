@@ -1,22 +1,21 @@
-import { Random } from "./dep.ts";
 import { FwTracer } from "@ndn/fw";
-import { Certificate, generateSigningKey, type NamedSigner, type NamedVerifier } from "@ndn/keychain";
+import { Certificate, ECDSA, generateSigningKey, type KeyChain, RSA, SigningAlgorithm, NamedSigner, NamedVerifier } from "@ndn/keychain";
 import { FwHint, Name, type Signer } from "@ndn/packet";
 import { DataStore, RepoProducer, PrefixRegStatic } from "@ndn/repo";
-import { exitClosers, openUplinks } from "@ndn/cli-common";
+import { openKeyChain, openUplinks } from "@ndn/cli-common";
 import { CaProfile, Server } from "@ndn/ndncert";
 import { ServerOidcChallenge } from "./oidc-challenge.ts";
+import { getSafeBag } from "./keychain-bypass.ts" 
 import memdown from "memdown";
 import yargs from "yargs/yargs";
 
 let caPvt: NamedSigner.PrivateKey;
 let caPub: NamedVerifier.PublicKey;
 let caCert: Certificate;
-let caSigner: Signer;
+let caCertName: string;
 let caProfile: CaProfile;
 let oidcClientId: string;
 let oidcSecret: string;
-let redirectUrl: string;
 let caPrefix: string;
 let maxValidity: number;
 let repoName: string;
@@ -25,6 +24,7 @@ let repoProducer: RepoProducer;
 const repo = new DataStore(memdown());
 const requestHeader: Record<string, string> = {};
 const requestBody = new URLSearchParams();
+export const keyChain: KeyChain = openKeyChain();
 
 const runCA = async () => {
   const fwName = new Name(repoName);
@@ -32,23 +32,29 @@ const runCA = async () => {
   repoProducer = RepoProducer.create(repo, { reg: PrefixRegStatic(fwName) });
 
   requestHeader["Content-Type"] = "application/x-www-form-urlencoded";
-  requestBody.append("redirect_uri", redirectUrl);
   requestBody.append("client_id", oidcClientId);
   requestBody.append("client_secret", oidcSecret);
   requestBody.append("scope", "openid");
   requestBody.append("grant_type", "authorization_code");
 
   await openUplinks();
-  [caPvt, caPub] = await generateSigningKey(caPrefix);
-  caCert = await Certificate.selfSign({ privateKey: caPvt, publicKey: caPub });
-  caSigner = caPvt.withKeyLocator(caCert.name);
+  await openKeyChain()
+  console.log(caCertName.toString())
+  const safeBag = await getSafeBag(caCertName, "PASSPHRASE");
+  caCert = safeBag.certificate
+
+
+  const algoList: SigningAlgorithm[] = [ECDSA, RSA];
+  const [algo, key] = await caCert.importPublicKey(algoList);
+  const pkcs8 = await safeBag.decryptKey("PASSPHRASE");
+  [caPvt, caPub] = await generateSigningKey(caCert.name, algo, { importPkcs8: [pkcs8, key.spki] });
   caProfile = await CaProfile.build({
-    prefix: new Name(caPrefix),
+    prefix: caCert.name.getPrefix(-4),
     info: caPrefix + " CA",
     probeKeys: [],
     maxValidityPeriod: maxValidity,
     cert: caCert,
-    signer: caSigner,
+    signer: caPvt,
     version: Date.now(),
   });
   console.log(caProfile.toJSON());
@@ -58,7 +64,7 @@ const runCA = async () => {
     profile: caProfile,
     repo,
     repoFwHint,
-    signer: caSigner,
+    signer: caPvt,
     challenges: [
       new ServerOidcChallenge(
         "google-oidc",
@@ -86,28 +92,24 @@ const runCA = async () => {
       ),
     ],
   });
-  exitClosers.push(server);
-  await exitClosers.wait();
 };
 
 if (import.meta.main) {
   const parser = yargs(Deno.args).options({
-    caPrefix: { type: "string" },
+    caCertName: { type: "string" },
     maxValidity: { type: "number", default: 86400000 },
     repoName: { type: "string" },
     oidcId: { type: "string" },
-    oidcSecret: { type: "string" },
-    redirectUrl: { type: "string" },
+    oidcSecret: { type: "string" }
   });
 
   FwTracer.enable()
   const argv = await parser.argv;
-  caPrefix = argv.caPrefix;
+  caCertName = argv.caCertName;
   maxValidity = argv.maxValidity;
   repoName = argv.repoName;
   oidcClientId = argv.oidcId;
   oidcSecret = argv.oidcSecret;
-  redirectUrl = argv.redirectUrl;
 
   const server = await runCA();
   Deno.addSignalListener("SIGINT", () => {

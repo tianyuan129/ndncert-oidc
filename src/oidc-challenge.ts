@@ -17,6 +17,7 @@ export class ClientOidcChallenge implements ClientChallenge {
     private readonly options: {
       oidcId: string;
       accessCode: string;
+      redirectUri: string;
     },
   ) {}
 
@@ -24,6 +25,7 @@ export class ClientOidcChallenge implements ClientChallenge {
     return Promise.resolve({
       "oidc-id": toUtf8(this.options.oidcId),
       "access-code": toUtf8(this.options.accessCode),
+      "redirect-uri": toUtf8(this.options.redirectUri)
     });
   }
 
@@ -44,6 +46,7 @@ const invalidAccessCode: ServerChallengeResponse = {
 type State = {
   oidcId: Uint8Array;
   accessCode: Uint8Array;
+  redirectUri: Uint8Array;
 };
 
 export type AssignmentPolicy = (
@@ -72,22 +75,27 @@ export class ServerOidcChallenge implements ServerChallenge<State> {
     const {
       "oidc-id": oidcId,
       "access-code": accessCode,
+      "redirect-uri": redirectUri,
     } = request.parameters;
     console.info(
       `Challenge request: ${
         JSON.stringify({
           oidcId: fromUtf8(oidcId),
           accessCode: fromUtf8(accessCode),
+          redirectUr: fromUtf8(redirectUri),
         })
       }`,
     );
-    if (!oidcId || !accessCode) {
+    if (!oidcId || !accessCode || !redirectUri) {
       return invalidParameters;
     }
-    context.challengeState = { oidcId, accessCode };
+    context.challengeState = { oidcId, accessCode, redirectUri };
     console.log("Receiving access code", fromUtf8(accessCode))
     // write access code to the request body
+
+    
     this.options.requestBody.append("code", fromUtf8(accessCode));
+    this.options.requestBody.append("redirect_uri", fromUtf8(redirectUri));
     try {
       const response = await fetch(this.options.requestUrl, {
         method: "post",
