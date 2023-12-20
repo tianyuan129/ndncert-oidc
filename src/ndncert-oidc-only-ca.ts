@@ -1,5 +1,5 @@
 import { FwTracer } from "@ndn/fw";
-import { Certificate, ECDSA, generateSigningKey, type KeyChain, RSA, SigningAlgorithm, NamedSigner, NamedVerifier } from "@ndn/keychain";
+import { Certificate, ECDSA, generateSigningKey, type KeyChain, RSA, SigningAlgorithm, NamedSigner, NamedVerifier, CertNaming } from "@ndn/keychain";
 import { FwHint, Name, type Signer } from "@ndn/packet";
 import { DataStore, RepoProducer, PrefixRegStatic } from "@ndn/repo";
 import { openKeyChain, openUplinks } from "@ndn/cli-common";
@@ -29,8 +29,6 @@ export const keyChain: KeyChain = openKeyChain();
 const runCA = async () => {
   const fwName = new Name(repoName);
   const repoFwHint = new FwHint(fwName);
-  repoProducer = RepoProducer.create(repo, { reg: PrefixRegStatic(fwName) });
-
   requestHeader["Content-Type"] = "application/x-www-form-urlencoded";
   requestBody.append("client_id", oidcClientId);
   requestBody.append("client_secret", oidcSecret);
@@ -41,8 +39,9 @@ const runCA = async () => {
   await openKeyChain()
   console.log(caCertName.toString())
   const safeBag = await getSafeBag(caCertName, "PASSPHRASE");
-  caCert = safeBag.certificate
-
+  caCert = safeBag.certificate;
+  repo.insert(caCert.data);
+  repoProducer = RepoProducer.create(repo, { reg: PrefixRegStatic(fwName, CertNaming.toKeyName(caCert.name)) });
 
   const algoList: SigningAlgorithm[] = [ECDSA, RSA];
   const [algo, key] = await caCert.importPublicKey(algoList);
