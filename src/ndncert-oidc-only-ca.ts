@@ -1,11 +1,21 @@
 import { FwTracer } from "@ndn/fw";
-import { Certificate, ECDSA, generateSigningKey, type KeyChain, RSA, SigningAlgorithm, NamedSigner, NamedVerifier, CertNaming } from "@ndn/keychain";
+import {
+  Certificate,
+  CertNaming,
+  ECDSA,
+  generateSigningKey,
+  type KeyChain,
+  NamedSigner,
+  NamedVerifier,
+  RSA,
+  SigningAlgorithm,
+} from "@ndn/keychain";
 import { FwHint, Name, type Signer } from "@ndn/packet";
-import { DataStore, RepoProducer, PrefixRegStatic } from "@ndn/repo";
+import { DataStore, PrefixRegStatic, RepoProducer } from "@ndn/repo";
 import { openKeyChain, openUplinks } from "@ndn/cli-common";
 import { CaProfile, Server } from "@ndn/ndncert";
-import { ServerOidcChallenge } from "./oidc-challenge.ts";
-import { getSafeBag } from "./keychain-bypass.ts" 
+import { ServerOidcChallenge } from "@ucla-irl/ndnts-aux/adaptors";
+import { getSafeBag } from "./keychain-bypass.ts";
 import memdown from "memdown";
 import yargs from "yargs/yargs";
 
@@ -36,8 +46,8 @@ const runCA = async () => {
   requestBody.append("grant_type", "authorization_code");
 
   await openUplinks();
-  await openKeyChain()
-  console.log(caCertName.toString())
+  await openKeyChain();
+  console.log(caCertName.toString());
   const safeBag = await getSafeBag(caCertName, "PASSPHRASE");
   caCert = safeBag.certificate;
   repo.insert(caCert.data);
@@ -97,13 +107,13 @@ const runCA = async () => {
 if (import.meta.main) {
   const parser = yargs(Deno.args).options({
     caCertName: { type: "string" },
-    maxValidity: { type: "number", default: 86400000*30 },
+    maxValidity: { type: "number", default: 86400000 * 30 },
     repoName: { type: "string" },
     oidcId: { type: "string" },
-    oidcSecret: { type: "string" }
+    oidcSecret: { type: "string" },
   });
 
-  FwTracer.enable()
+  FwTracer.enable();
   const argv = await parser.argv;
   caCertName = argv.caCertName;
   maxValidity = argv.maxValidity;
