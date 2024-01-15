@@ -2,7 +2,7 @@ import { Certificate, generateSigningKey, type NamedSigner, type NamedVerifier }
 import { CaProfile, ProbeResponse, requestCertificate, retrieveCaProfile } from "@ndn/ndncert";
 import { openUplinks } from "@ndn/cli-common";
 import { Name } from "@ndn/packet";
-import { ClientOidcChallenge } from "./oidc-challenge.ts";
+import { ClientOidcChallenge } from "@ucla-irl/ndnts-aux/adaptors";
 import yargs from "yargs/yargs";
 
 let reqName: string;

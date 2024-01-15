@@ -32,5 +32,8 @@
     "typescript": "~5.3.3",
     "vitest": "^0.34.6",
     "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@ucla-irl/ndnts-aux": "^1.0.1"
   }
 }
