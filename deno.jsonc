@@ -1,6 +1,7 @@
 {
   "tasks": {
     "ca": "deno run --allow-env --allow-net --allow-run --allow-read --allow-write --unstable src/ndncert-oidc-only-ca.ts",
+    "display-cert-fullname": "deno run --allow-env --allow-run --allow-read --allow-write --unstable src/display-cert-fullname.ts",
     "client": "deno run --allow-env --allow-net --allow-run --allow-read --allow-write --unstable src/ndncert-oidc-only-client.ts"
   },
   "unstable": ["byonm", "net", "fs"],
